@@ -17,8 +17,8 @@ use Sulu\Bundle\FormBundle\Configuration\MailConfigurationInterface;
 use Sulu\Bundle\FormBundle\Entity\Dynamic;
 use Sulu\Bundle\FormBundle\Event\FormSavePostEvent;
 use Sulu\Bundle\FormBundle\Event\FormSavePreEvent;
-use Sulu\Bundle\FormBundle\Mail;
-use Sulu\Bundle\MediaBundle\Media\Manager\MediaManager;
+use Sulu\Bundle\FormBundle\Mail\HelperInterface;
+use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -46,12 +46,12 @@ class Handler implements HandlerInterface
     protected $eventDispatcher;
 
     /**
-     * @var MediaManager
+     * @var MediaManagerInterface
      */
     protected $mediaManager;
 
     /**
-     * @var Mail\HelperInterface
+     * @var HelperInterface
      */
     protected $mailHelper;
 
@@ -67,10 +67,10 @@ class Handler implements HandlerInterface
 
     public function __construct(
         ObjectManager $entityManager,
-        Mail\HelperInterface $mailHelper,
+        HelperInterface $mailHelper,
         Environment $twig,
         EventDispatcherInterface $eventDispatcher,
-        MediaManager $mediaManager,
+        MediaManagerInterface $mediaManager,
         string $honeyPotStrategy = self::HONEY_POT_STRATEGY_SPAM,
         string $honeyPotField = null
     ) {
@@ -165,6 +165,8 @@ class Handler implements HandlerInterface
      * Send mail.
      *
      * @param \SplFileInfo[] $attachments
+     *
+     * @return void
      */
     private function sendMail(
         FormInterface $form,
@@ -183,7 +185,7 @@ class Handler implements HandlerInterface
 
         $body = $this->twig->render(
             $configuration->getTemplate(),
-            array_merge(
+            \array_merge(
                 $configuration->getTemplateAttributes(),
                 $additionalData
             )
@@ -217,13 +219,13 @@ class Handler implements HandlerInterface
         $attachments = [];
 
         foreach ($configuration->getFileFields() as $field => $collectionId) {
-            if (!$form->has($field) || !count($form[$field]->getData())) {
+            if (!$form->has($field) || !\count($form[$field]->getData())) {
                 continue;
             }
 
             $files = $form[$field]->getData();
 
-            if (!is_array($files)) {
+            if (!\is_array($files)) {
                 $files = [$files];
             }
 
@@ -250,14 +252,14 @@ class Handler implements HandlerInterface
         $mediaIds = [];
 
         foreach ($configuration->getFileFields() as $field => $collectionId) {
-            if (!$form->has($field) || !count($form[$field]->getData())) {
+            if (!$form->has($field) || !\count($form[$field]->getData())) {
                 continue;
             }
 
             $files = $form[$field]->getData();
             $ids = [];
 
-            if (!is_array($files)) {
+            if (!\is_array($files)) {
                 $files = [$files];
             }
 
@@ -334,7 +336,7 @@ class Handler implements HandlerInterface
 
         return $this->twig->render(
             $template,
-            array_merge(
+            \array_merge(
                 $configuration->getTemplateAttributes(),
                 $additionalData
             )
@@ -347,7 +349,7 @@ class Handler implements HandlerInterface
             return false;
         }
 
-        $honeypotFieldName = str_replace(' ', '_', strtolower($this->honeyPotField));
+        $honeypotFieldName = \str_replace(' ', '_', \strtolower($this->honeyPotField));
 
         if (!$form->has($honeypotFieldName)) {
             return false;

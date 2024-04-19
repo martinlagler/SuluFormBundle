@@ -23,17 +23,17 @@ trait ChoiceTrait
      */
     protected function getChoices(FormFieldTranslation $translation): array
     {
-        $choices = preg_split('/\r\n|\r|\n/', $translation->getOption('choices'), -1, PREG_SPLIT_NO_EMPTY);
+        $choices = \preg_split('/\r\n|\r|\n/', $translation->getOption('choices'), -1, \PREG_SPLIT_NO_EMPTY);
 
-        return array_combine($choices, $choices);
+        return \array_combine($choices, $choices);
     }
 
     /**
      * Returns options for multichoice form type like select, multiple select, radio or checkboxes.
      *
-     * @param string[] $options
+     * @param mixed[] $options
      *
-     * @return string[]
+     * @return mixed[]
      */
     private function getChoiceOptions(
         FormFieldTranslation $translation,
@@ -58,6 +58,6 @@ trait ChoiceTrait
      */
     private function getDefaultOptions(string $value): array
     {
-        return preg_split('/\r\n|\r|\n/', $value, -1, PREG_SPLIT_NO_EMPTY);
+        return \preg_split('/\r\n|\r|\n/', $value, -1, \PREG_SPLIT_NO_EMPTY);
     }
 }

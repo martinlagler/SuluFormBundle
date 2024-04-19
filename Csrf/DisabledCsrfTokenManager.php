@@ -14,6 +14,9 @@ namespace Sulu\Bundle\FormBundle\Csrf;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
+/**
+ * @final
+ */
 class DisabledCsrfTokenManager implements CsrfTokenManagerInterface
 {
     /**
@@ -26,22 +29,31 @@ class DisabledCsrfTokenManager implements CsrfTokenManagerInterface
         $this->csrfTokenManager = $csrfTokenManager;
     }
 
-    public function refreshToken(string $tokenId)
+    /**
+     * @param string $tokenId
+     */
+    public function refreshToken($tokenId): CsrfToken
     {
         return $this->csrfTokenManager->refreshToken($tokenId);
     }
 
-    public function removeToken(string $tokenId)
+    /**
+     * @param string $tokenId
+     */
+    public function removeToken($tokenId): ?string
     {
         return $this->csrfTokenManager->removeToken($tokenId);
     }
 
-    public function isTokenValid(CsrfToken $token)
+    public function isTokenValid(CsrfToken $token): bool
     {
         return $this->csrfTokenManager->isTokenValid($token);
     }
 
-    public function getToken(string $tokenId)
+    /**
+     * @param string $tokenId
+     */
+    public function getToken($tokenId): CsrfToken
     {
         return new CsrfToken('', null);
     }

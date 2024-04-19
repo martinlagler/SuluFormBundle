@@ -27,15 +27,6 @@ Sulu\Bundle\FormBundle\SuluFormBundle::class => ['all' => true],
 
 ## Config
 
-Activate esi for csrf token reload on cache pages
-by change the following lines in `config/packages/framework.yaml`.
-
-```yml
-framework:
-    esi: true
-    fragments: true
-```
-
 Configure the default sender and receivers email address (optional):
 
 ```yml
@@ -44,6 +35,14 @@ sulu_form:
         from: "%env(SULU_ADMIN_EMAIL)%"
         to:   "%env(SULU_ADMIN_EMAIL)%"
         sender: "%env(SULU_ADMIN_EMAIL)%"
+```
+
+Optional configure the email handler to SwiftMailer (`swift_mailer`) or the Symfony Mailer (`mailer`):
+
+```yml
+sulu_form:
+    mail:
+        helper: "swift_mailer" # is default
 ```
 
 ## Create Database
@@ -81,9 +80,6 @@ Make sure you've set the correct permissions in the Sulu backend for this bundle
 ## Additional form fields
 
 - [Mailchimp](mailchimp.md "Mailchimp Form Field")
+- [Sendinblue](sendinblue.md "Sendinblue Form Field")
 - [Recaptcha](recaptcha.md "Recaptcha Form Field")
 - [Dropzone](dropzone.md "Dropzone Form Field")
-
-## Varnish
-
-Using varnish have a look at the [CSRF](csrf.md "CSRF Token") documentation.

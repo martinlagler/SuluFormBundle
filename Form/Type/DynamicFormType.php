@@ -55,15 +55,19 @@ class DynamicFormType extends AbstractType
     }
 
     /**
-     * {@inheritdoc}
+     * @return void
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
         /** @var Form $formEntity */
         $formEntity = $options['formEntity'];
+        /** @var string $locale */
         $locale = $options['locale'];
+        /** @var string $type */
         $type = $options['type'];
+        /** @var string $typeId */
         $typeId = $options['typeId'];
+        /** @var string $name */
         $name = $options['name'];
 
         if (!$translation = $formEntity->getTranslation($locale)) {
@@ -156,7 +160,7 @@ class DynamicFormType extends AbstractType
 
         if ($this->honeyPotField) {
             $builder->add(
-                str_replace(' ', '_', strtolower($this->honeyPotField)),
+                \str_replace(' ', '_', \strtolower($this->honeyPotField)),
                 EmailType::class,
                 [
                     'label' => $this->honeyPotField,
@@ -184,7 +188,7 @@ class DynamicFormType extends AbstractType
     }
 
     /**
-     * {@inheritdoc}
+     * @return void
      */
     public function configureOptions(OptionsResolver $resolver)
     {
@@ -203,9 +207,6 @@ class DynamicFormType extends AbstractType
         $resolver->setRequired('formEntity');
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getBlockPrefix()
     {
         return 'dynamic';

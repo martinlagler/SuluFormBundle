@@ -32,12 +32,12 @@ class FormField
     /**
      * @var string
      */
-    private $width;
+    private $width = 'full';
 
     /**
      * @var bool
      */
-    private $required;
+    private $required = false;
 
     /**
      * @var null|int
@@ -55,7 +55,7 @@ class FormField
     private $defaultLocale;
 
     /**
-     * @var Collection|FormFieldTranslation[]
+     * @var Collection<int, FormFieldTranslation>
      */
     private $translations;
 
@@ -189,7 +189,7 @@ class FormField
     }
 
     /**
-     * @return Collection|FormFieldTranslation[]
+     * @return Collection<int, FormFieldTranslation>
      */
     public function getTranslations()
     {

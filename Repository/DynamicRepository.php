@@ -13,9 +13,12 @@ namespace Sulu\Bundle\FormBundle\Repository;
 
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\QueryBuilder;
+use Sulu\Bundle\FormBundle\Entity\Dynamic;
 
 /**
  * Repository for the dynamic entity.
+ *
+ * @template-extends EntityRepository<Dynamic>
  */
 class DynamicRepository extends EntityRepository
 {
@@ -122,7 +125,7 @@ class DynamicRepository extends EntityRepository
             return;
         }
 
-        $terms = explode(' ', $search);
+        $terms = \explode(' ', $search);
 
         // Search each term in each search field
         foreach ($terms as $counter => $term) {
@@ -135,7 +138,7 @@ class DynamicRepository extends EntityRepository
                 );
             }
 
-            $queryBuilder->andWhere(call_user_func_array([$queryBuilder->expr(), 'orX'], $expressions));
+            $queryBuilder->andWhere(\call_user_func_array([$queryBuilder->expr(), 'orX'], $expressions));
             $queryBuilder->setParameter('searchTerm' . $counter, '%' . $term . '%');
         }
     }

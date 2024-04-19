@@ -21,7 +21,7 @@ use Sulu\Bundle\FormBundle\ListBuilder\DynamicListFactory;
 use Sulu\Bundle\FormBundle\Repository\DynamicRepository;
 use Sulu\Bundle\FormBundle\Repository\FormRepository;
 use Sulu\Bundle\MediaBundle\Media\Exception\MediaNotFoundException;
-use Sulu\Bundle\MediaBundle\Media\Manager\MediaManager;
+use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 use Sulu\Component\Rest\ListBuilder\ListRepresentation;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -45,7 +45,7 @@ class DynamicController implements ClassResourceInterface
     private $dynamicListFactory;
 
     /**
-     * @var MediaManager
+     * @var MediaManagerInterface
      */
     private $mediaManager;
 
@@ -67,7 +67,7 @@ class DynamicController implements ClassResourceInterface
     public function __construct(
         DynamicRepository $dynamicRepository,
         DynamicListFactory $dynamicListFactory,
-        MediaManager $mediaManager,
+        MediaManagerInterface $mediaManager,
         EntityManager $entityManager,
         FormRepository $formRepository,
         ViewHandler $viewHandler
@@ -103,11 +103,11 @@ class DynamicController implements ClassResourceInterface
         $entries = $this->dynamicListFactory->build($entries, $view);
 
         // avoid total request when entries < limit
-        if (count($entries) == $limit) {
+        if (\count($entries) == $limit) {
             $total = $this->dynamicRepository->countByFilters($filters);
         } else {
             // calculate total
-            $total = count($entries) + $offset;
+            $total = \count($entries) + $offset;
         }
 
         // create list representation
@@ -131,7 +131,7 @@ class DynamicController implements ClassResourceInterface
     {
         $dynamic = $this->dynamicRepository->find($id);
 
-        $attachments = array_filter(array_values($dynamic->getFieldsByType(Dynamic::TYPE_ATTACHMENT)));
+        $attachments = \array_filter(\array_values($dynamic->getFieldsByType(Dynamic::TYPE_ATTACHMENT)));
 
         foreach ($attachments as $mediaIds) {
             foreach ($mediaIds as $mediaId) {
@@ -164,10 +164,10 @@ class DynamicController implements ClassResourceInterface
             'fromDate' => $request->get('fromDate'),
             'toDate' => $request->get('toDate'),
             'search' => $request->get('search'),
-            'searchFields' => array_filter(explode(',', $request->get('searchFields', ''))),
+            'searchFields' => \array_filter(\explode(',', $request->get('searchFields', ''))),
         ];
 
-        return array_filter($filters);
+        return \array_filter($filters);
     }
 
     protected function loadForm(Request $request): Form

@@ -33,15 +33,12 @@ class CollectionStrategySingle implements CollectionStrategyInterface
         $this->systemCollectionManager = $systemCollectionManager;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getCollectionId(
-        $formId,
-        $formTitle,
-        $type,
-        $typeId,
-        $locale
+        int $formId,
+        string $formTitle,
+        string $type,
+        string $typeId,
+        string $locale
     ): int {
         return $this->systemCollectionManager->getSystemCollection(
             SuluFormExtension::SYSTEM_COLLECTION_ROOT . '.attachments'

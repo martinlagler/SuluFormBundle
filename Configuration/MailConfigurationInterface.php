@@ -16,9 +16,9 @@ namespace Sulu\Bundle\FormBundle\Configuration;
  */
 interface MailConfigurationInterface
 {
-    const TYPE_TO = 'to';
-    const TYPE_CC = 'cc';
-    const TYPE_BCC = 'bcc';
+    public const TYPE_TO = 'to';
+    public const TYPE_CC = 'cc';
+    public const TYPE_BCC = 'bcc';
 
     public function getLocale(): string;
 
@@ -27,35 +27,35 @@ interface MailConfigurationInterface
     /**
      * Get from address.
      *
-     * @return string|array
+     * @return string|string[]
      */
     public function getFrom();
 
     /**
      * Get to addresses.
      *
-     * @return string|array
+     * @return string|string[]
      */
     public function getTo();
 
     /**
      * Get cc addresses.
      *
-     * @return string|array
+     * @return string|string[]
      */
     public function getCc();
 
     /**
      * Get bcc addresses.
      *
-     * @return string|array
+     * @return string|string[]
      */
     public function getBcc();
 
     /**
      * Get reply to.
      *
-     * @return string|array
+     * @return string|string[]
      */
     public function getReplyTo();
 

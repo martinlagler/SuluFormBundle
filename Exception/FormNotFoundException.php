@@ -18,9 +18,12 @@ class FormNotFoundException extends \Exception
      */
     private $formEntityId;
 
+    /**
+     * @param string|null $locale
+     */
     public function __construct(int $formEntityId, $locale)
     {
-        parent::__construct(sprintf('The form with the ID "%s" does not exist for the locale "%s"!', $formEntityId, $locale));
+        parent::__construct(\sprintf('The form with the ID "%s" does not exist for the locale "%s"!', $formEntityId, $locale));
 
         $this->formEntityId = $formEntityId;
     }

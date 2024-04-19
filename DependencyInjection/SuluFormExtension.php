@@ -13,28 +13,29 @@ namespace Sulu\Bundle\FormBundle\DependencyInjection;
 
 use Sulu\Bundle\FormBundle\Controller\FormTokenController;
 use Sulu\Bundle\FormBundle\Controller\FormWebsiteController;
+use Sulu\Bundle\FormBundle\Entity\Form;
 use Sulu\Component\HttpKernel\SuluKernel;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
+use Symfony\Component\Mailer\MailerInterface;
 
 /**
  * This is the class that loads and manages your bundle configuration.
  *
  * To learn more see {@link http://symfony.com/doc/current/cookbook/bundles/extension.html}
+ *
+ * @internal
  */
 class SuluFormExtension extends Extension implements PrependExtensionInterface
 {
-    const SYSTEM_COLLECTION_ROOT = 'sulu_form';
-    const MEDIA_COLLECTION_STRATEGY_SINGLE = 'single';
-    const MEDIA_COLLECTION_STRATEGY_TREE = 'tree';
+    public const SYSTEM_COLLECTION_ROOT = 'sulu_form';
+    public const MEDIA_COLLECTION_STRATEGY_SINGLE = 'single';
+    public const MEDIA_COLLECTION_STRATEGY_TREE = 'tree';
 
-    /**
-     * {@inheritdoc}
-     */
-    public function prepend(ContainerBuilder $container)
+    public function prepend(ContainerBuilder $container): void
     {
         if ($container->hasExtension('fos_js_routing')) {
             $container->prependExtensionConfig(
@@ -89,7 +90,7 @@ class SuluFormExtension extends Extension implements PrependExtensionInterface
                         ],
                     ],
                     'resources' => [
-                        'forms' => [
+                        Form::RESOURCE_KEY => [
                             'routes' => [
                                 'list' => 'sulu_form.get_forms',
                                 'detail' => 'sulu_form.get_form',
@@ -106,7 +107,7 @@ class SuluFormExtension extends Extension implements PrependExtensionInterface
                         'single_selection' => [
                             'single_form_selection' => [
                                 'default_type' => 'list_overlay',
-                                'resource_key' => 'forms',
+                                'resource_key' => Form::RESOURCE_KEY,
                                 'types' => [
                                     'list_overlay' => [
                                         'adapter' => 'table',
@@ -125,14 +126,14 @@ class SuluFormExtension extends Extension implements PrependExtensionInterface
         }
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function load(array $configs, ContainerBuilder $container)
+    public function load(array $configs, ContainerBuilder $container): void
     {
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
+        $mediaCollectionStrategy = $config['media_collection_strategy'] ? $config['media_collection_strategy'] : $config['media']['collection_strategy'];
+
+        $container->setParameter('sulu_form.csrf_protection', $config['csrf_protection']);
         $container->setParameter('sulu_form.mail.from', $config['mail']['from']);
         $container->setParameter('sulu_form.mail.to', $config['mail']['to']);
         $container->setParameter('sulu_form.mail.sender', $config['mail']['sender']);
@@ -143,17 +144,18 @@ class SuluFormExtension extends Extension implements PrependExtensionInterface
         $container->setParameter('sulu_form.ajax_templates', $config['ajax_templates']);
         $container->setParameter('sulu_form.dynamic_widths', $config['dynamic_widths']);
         $container->setParameter('sulu_form.dynamic_auto_title', $config['dynamic_auto_title']);
+        $container->setParameter('sulu_form.sendinblue_api_key', $config['sendinblue_api_key']);
         $container->setParameter('sulu_form.mailchimp_api_key', $config['mailchimp_api_key']);
         $container->setParameter('sulu_form.mailchimp_subscribe_status', $config['mailchimp_subscribe_status']);
         $container->setParameter('sulu_form.dynamic_lists.config', $config['dynamic_lists']);
-        $container->setParameter('sulu_form.media_collection_strategy', $config['media_collection_strategy']);
+        $container->setParameter('sulu_form.media_collection_strategy', $mediaCollectionStrategy);
         $container->setParameter('sulu_form.static_forms', $config['static_forms']);
         $container->setParameter('sulu_form.dynamic_disabled_types', $config['dynamic_disabled_types']);
 
         // Default Media Collection Strategy
         $container->setAlias(
             'sulu_form.media_collection_strategy.default',
-            'sulu_form.media_collection_strategy.' . $config['media_collection_strategy']
+            'sulu_form.media_collection_strategy.' . $mediaCollectionStrategy
         );
 
         // Dynamic List Builder
@@ -183,8 +185,27 @@ class SuluFormExtension extends Extension implements PrependExtensionInterface
         $loader->load('types.xml');
         $loader->load('title-providers.xml');
 
+        $definition = $container->getDefinition('sulu_mail.null_helper');
+
+        $reflection = new \ReflectionClass($definition);
+        $reflectionMethod = $reflection->getMethod('setDeprecated');
+
+        if (isset($reflectionMethod->getParameters()[1]) && 'version' === $reflectionMethod->getParameters()[1]->getName()) {
+            $definition->setDeprecated('sulu/form-bundle', '2.3', 'The "%service_id%" is deprecated use the mailer configuration instead.');
+        } else {
+            $definition->setDeprecated(true, 'The "%service_id%" is deprecated use the mailer configuration instead.');
+        }
+
+        if ($config['sendinblue_api_key']) {
+            if (!\class_exists(\SendinBlue\Client\Configuration::class)) {
+                throw new \LogicException('You need to install the "sendinblue/api-v3-sdk" package to use the sendinblue type.');
+            }
+
+            $loader->load('type_sendinblue.xml');
+        }
+
         if ($config['mailchimp_api_key']) {
-            if (!class_exists(\DrewM\MailChimp\MailChimp::class)) {
+            if (!\class_exists(\DrewM\MailChimp\MailChimp::class)) {
                 throw new \LogicException('You need to install the "drewm/mailchimp-api" package to use the mailchimp type.');
             }
 
@@ -193,11 +214,15 @@ class SuluFormExtension extends Extension implements PrependExtensionInterface
 
         $bundles = $container->getParameter('kernel.bundles');
 
-        if (array_key_exists('SuluArticleBundle', $bundles)) {
+        if (\array_key_exists('SuluArticleBundle', $bundles)) {
             $loader->load('article.xml');
         }
 
-        if (class_exists(\EWZ\Bundle\RecaptchaBundle\Form\Type\EWZRecaptchaType::class)) {
+        if (\array_key_exists('SuluTrashBundle', $bundles)) {
+            $loader->load('services_trash.xml');
+        }
+
+        if (\class_exists(\EWZ\Bundle\RecaptchaBundle\Form\Type\EWZRecaptchaType::class)) {
             $loader->load('type_recaptcha.xml');
         }
 
@@ -207,5 +232,40 @@ class SuluFormExtension extends Extension implements PrependExtensionInterface
             $container->setAlias(FormTokenController::class, 'sulu_form.form_token_controller')
                 ->setPublic(true);
         }
+
+        $container->setParameter('sulu_mail.mail.helper_name', $config['mail']['helper']);
+
+        if ($config['media']['protected']) {
+            $loader->load('protected_media.xml');
+        }
+
+        $this->configureHelper($loader, $config, $container);
+    }
+
+    /**
+     * @param mixed[] $config
+     */
+    private function configureHelper(Loader\XmlFileLoader $loader, array $config, ContainerBuilder $container): void
+    {
+        $helper = $config['mail']['helper'];
+        if (\method_exists($container, 'resolveEnvPlaceholders')) {
+            $helper = $container->resolveEnvPlaceholders($helper, true);
+        }
+
+        if (\class_exists(\Swift_Mailer::class)) {
+            $helper = $helper ?: 'swift_mailer';
+            $loader->load('swift_mailer.xml');
+        }
+
+        if (\interface_exists(MailerInterface::class)) {
+            $helper = $helper ?: 'mailer';
+            $loader->load('mailer.xml');
+        }
+
+        if (!$helper) {
+            throw new \LogicException('The SuluFormBundle requires "swiftmailer/swiftmailer" or "symfony/mailer" to be installed.');
+        }
+
+        $container->setAlias('sulu.mail.helper', 'sulu.mail.' . $helper);
     }
 }

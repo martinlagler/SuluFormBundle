@@ -17,6 +17,7 @@ use Sulu\Bundle\FormBundle\Form\HandlerInterface;
 use Sulu\Bundle\FormBundle\Form\Type\AbstractType;
 use Sulu\Bundle\WebsiteBundle\Controller\DefaultController;
 use Sulu\Component\Content\Compat\StructureInterface;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Form\FormRegistryInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,24 +33,24 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 class FormWebsiteController extends DefaultController
 {
     /**
-     * @var FormInterface
+     * @var FormInterface|null
      */
     protected $form;
 
     /**
-     * @var array
+     * @var mixed[]
      */
     protected $attributes;
 
     public function __construct()
     {
-        @trigger_error(
+        @\trigger_error(
             __CLASS__ . ' is deprecated and should not longer be used.',
-            E_USER_DEPRECATED
+            \E_USER_DEPRECATED
         );
     }
 
-    public static function getSubscribedServices()
+    public static function getSubscribedServices(): array
     {
         $subscribesServices = parent::getSubscribedServices();
         $subscribesServices['form.registry'] = FormRegistryInterface::class;
@@ -74,11 +75,11 @@ class FormWebsiteController extends DefaultController
 
         $typeClass = $this->getTypeClass($template);
         /** @var AbstractType $type */
-        $type = $this->get('form.registry')->getType($typeClass)->getInnerType();
+        $type = $this->container->get('form.registry')->getType($typeClass)->getInnerType();
         $type->setAttributes($attributes);
 
-        $this->form = $this->get('form.factory')->create($typeClass, [], [
-            'csrf_token_manager' => new DisabledCsrfTokenManager($this->get('security.csrf.token_manager')),
+        $this->form = $this->container->get('form.factory')->create($typeClass, [], [
+            'csrf_token_manager' => new DisabledCsrfTokenManager($this->container->get('security.csrf.token_manager')),
         ]);
         $this->form->handleRequest($request);
 
@@ -109,8 +110,8 @@ class FormWebsiteController extends DefaultController
 
         $typeClass = $this->getTypeClass($key);
         /** @var AbstractType $type */
-        $type = $this->get('form.registry')->getType($typeClass)->getInnerType();
-        $this->form = $this->get('form.factory')->create($typeClass);
+        $type = $this->container->get('form.registry')->getType($typeClass)->getInnerType();
+        $this->form = $this->container->get('form.factory')->create($typeClass);
         $this->form->handleRequest($request);
 
         if ($this->form->isSubmitted()
@@ -135,14 +136,14 @@ class FormWebsiteController extends DefaultController
     private function handleFormSubmit(Request $request, AbstractType $type, array $attributes): ?Response
     {
         // handle form submit
-        $configuration = $this->get('sulu_form.configuration.form_configuration_factory')->buildByType(
+        $configuration = $this->container->get('sulu_form.configuration.form_configuration_factory')->buildByType(
             $type,
             $this->form->getData(),
             $request->getLocale(),
             $attributes
         );
 
-        $success = $this->get('sulu_form.handler')->handle($this->form, $configuration);
+        $success = $this->container->get('sulu_form.handler')->handle($this->form, $configuration);
 
         if ($success) {
             if ($request->isXmlHttpRequest()) {
@@ -168,14 +169,14 @@ class FormWebsiteController extends DefaultController
     private function handleFormOnlySubmit(Request $request, AbstractType $type): ?RedirectResponse
     {
         // handle form submit
-        $configuration = $this->get('sulu_form.configuration.form_configuration_factory')->buildByType(
+        $configuration = $this->container->get('sulu_form.configuration.form_configuration_factory')->buildByType(
             $type,
             $this->form->getData(),
             $request->getLocale(),
             []
         );
 
-        if ($this->get('sulu_form.handler')->handle($this->form, $configuration)) {
+        if ($this->container->get('sulu_form.handler')->handle($this->form, $configuration)) {
             return new RedirectResponse('?send=true');
         }
 
@@ -185,13 +186,14 @@ class FormWebsiteController extends DefaultController
     /**
      * Get errors.
      *
-     * @return array[]
+     * @return array<string, string[]>
      */
     protected function getErrors(): array
     {
         $errors = [];
 
         $generalErrors = [];
+        /** @var FormError $error */
         foreach ($this->form->getErrors() as $error) {
             $generalErrors[] = $error->getMessage();
         }
@@ -203,6 +205,7 @@ class FormWebsiteController extends DefaultController
         foreach ($this->form->all() as $field) {
             $fieldErrors = [];
 
+            /** @var FormError $error */
             foreach ($field->getErrors() as $error) {
                 $fieldErrors[] = $error->getMessage();
             }
@@ -216,7 +219,10 @@ class FormWebsiteController extends DefaultController
     }
 
     /**
-     * {@inheritdoc}
+     * @param mixed[] $attributes
+     * @param bool $preview
+     *
+     * @return mixed[]
      */
     protected function getAttributes($attributes, StructureInterface $structure = null, $preview = false)
     {
@@ -224,7 +230,7 @@ class FormWebsiteController extends DefaultController
             $this->attributes = parent::getAttributes($attributes, $structure, $preview);
         }
 
-        if (!empty($this->form)) {
+        if ($this->form) {
             $this->attributes['form'] = $this->form->createView();
         }
 

@@ -50,15 +50,12 @@ class CollectionStrategyTree implements CollectionStrategyInterface
         $this->titleProviderPool = $titleProviderPool;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getCollectionId(
-        $formId,
-        $formTitle,
-        $type,
-        $typeId,
-        $locale
+        int $formId,
+        string $formTitle,
+        string $type,
+        string $typeId,
+        string $locale
     ): int {
         $title = $this->titleProviderPool->get($type)->getTitle($typeId, $locale);
         $rootCollectionKey = SuluFormExtension::SYSTEM_COLLECTION_ROOT;

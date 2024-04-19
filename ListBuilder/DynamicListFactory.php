@@ -28,7 +28,7 @@ class DynamicListFactory implements DynamicListFactoryInterface
     protected $defaultBuilder;
 
     /**
-     * @var array
+     * @var array<string, DynamicListBuilderInterface>
      */
     protected $builders;
 
@@ -37,9 +37,6 @@ class DynamicListFactory implements DynamicListFactoryInterface
         $this->defaultBuilder = $defaultBuilder;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getFieldDescriptors(Form $form, string $locale): array
     {
         $fieldDescriptors = [];
@@ -53,15 +50,15 @@ class DynamicListFactory implements DynamicListFactoryInterface
         );
 
         foreach ($form->getFields() as $field) {
-            if (in_array($field->getType(), Dynamic::$HIDDEN_TYPES)) {
+            if (\in_array($field->getType(), Dynamic::$HIDDEN_TYPES)) {
                 continue;
             }
 
             $title = '';
-            $translation = $field->getTranslation($locale);
+            $translation = $field->getTranslation($locale, false, true);
 
             if ($translation) {
-                $title = $translation->getShortTitle() ?: strip_tags($translation->getTitle());
+                $title = $translation->getShortTitle() ?: \strip_tags($translation->getTitle());
             }
 
             $fieldDescriptors[$field->getKey()] = new FieldDescriptor(
@@ -85,9 +82,6 @@ class DynamicListFactory implements DynamicListFactoryInterface
         return $fieldDescriptors;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function build(array $dynamics, string $locale, string $builder = 'default'): array
     {
         $entries = [];
@@ -101,9 +95,6 @@ class DynamicListFactory implements DynamicListFactoryInterface
         return $entries;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function add(DynamicListBuilderInterface $builder, string $alias): void
     {
         $this->builders[$alias] = $builder;
@@ -115,7 +106,7 @@ class DynamicListFactory implements DynamicListFactoryInterface
             $alias = $this->defaultBuilder;
         }
 
-        if (!$this->builders[$alias]) {
+        if (!isset($this->builders[$alias])) {
             throw new BuilderNotFoundException($alias);
         }
 

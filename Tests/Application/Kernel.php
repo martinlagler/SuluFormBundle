@@ -13,24 +13,19 @@ namespace Sulu\Bundle\FormBundle\Tests\Application;
 
 use Sulu\Bundle\FormBundle\SuluFormBundle;
 use Sulu\Bundle\TestBundle\Kernel\SuluTestKernel;
+use Symfony\Bundle\SwiftmailerBundle\SwiftmailerBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
 
 class Kernel extends SuluTestKernel
 {
-    /**
-     * {@inheritdoc}
-     */
     public function __construct($environment, $debug, $suluContext = self::CONTEXT_ADMIN)
     {
         parent::__construct($environment, $debug, $suluContext);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function registerBundles()
+    public function registerBundles(): iterable
     {
-        return array_merge(
+        return \array_merge(
             parent::registerBundles(),
             [
                 new SuluFormBundle(),
@@ -38,17 +33,19 @@ class Kernel extends SuluTestKernel
         );
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function registerContainerConfiguration(LoaderInterface $loader)
+    public function registerContainerConfiguration(LoaderInterface $loader): void
     {
         parent::registerContainerConfiguration($loader);
 
         $loader->load(__DIR__ . '/config/config_' . $this->getContext() . '.yml');
+
+        $parameters = $this->getKernelParameters();
+        if (isset($parameters['kernel.bundles'][SwiftmailerBundle::class])) {
+            $loader->load(__DIR__ . '/config/swiftmailer.yml'); // @deprecated
+        }
     }
 
-    protected function getKernelParameters()
+    protected function getKernelParameters(): array
     {
         $parameters = parent::getKernelParameters();
 

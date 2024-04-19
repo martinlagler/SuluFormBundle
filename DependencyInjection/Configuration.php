@@ -19,26 +19,51 @@ use Symfony\Component\Config\Definition\ConfigurationInterface;
  * This is the class that validates and merges configuration from your app/config files.
  *
  * To learn more see {@link http://symfony.com/doc/current/cookbook/bundles/extension.html#cookbook-bundles-extension-config-class}
+ *
+ * @internal
  */
 class Configuration implements ConfigurationInterface
 {
-    /**
-     * {@inheritdoc}
-     */
-    public function getConfigTreeBuilder()
+    public const SWIFT_MAILER_HELPER = 'swift_mailer';
+    public const MAILER_HELPER = 'mailer';
+
+    public function getConfigTreeBuilder(): TreeBuilder
     {
         $treeBuilder = new TreeBuilder('sulu_form');
         $rootNode = $treeBuilder->getRootNode();
 
         $rootNode->children()
+            ->booleanNode('csrf_protection')
+                ->info('Enable csrf protection for dynamic forms.')
+                ->defaultFalse()
+            ->end()
+            ->scalarNode('sendinblue_api_key')->defaultValue(null)->end()
             ->scalarNode('mailchimp_api_key')->defaultValue(null)->end()
             ->scalarNode('mailchimp_subscribe_status')->defaultValue('subscribed')->end()
             ->enumNode('media_collection_strategy')
                 ->values([
+                    null,
                     SuluFormExtension::MEDIA_COLLECTION_STRATEGY_SINGLE,
                     SuluFormExtension::MEDIA_COLLECTION_STRATEGY_TREE,
                 ])
-                ->defaultValue(SuluFormExtension::MEDIA_COLLECTION_STRATEGY_SINGLE)
+                ->defaultValue(null)
+                ->setDeprecated('sulu/form-bundle', '2.2.0')
+            ->end()
+            ->arrayNode('media')
+                ->addDefaultsIfNotSet()
+                ->children()
+                    ->booleanNode('protected')
+                        ->info('Enables the media protection so media are only downloadable from the admin.')
+                        ->defaultValue(false)
+                    ->end()
+                    ->enumNode('collection_strategy')
+                        ->values([
+                            SuluFormExtension::MEDIA_COLLECTION_STRATEGY_SINGLE,
+                            SuluFormExtension::MEDIA_COLLECTION_STRATEGY_TREE,
+                        ])
+                        ->defaultValue(SuluFormExtension::MEDIA_COLLECTION_STRATEGY_SINGLE)
+                    ->end()
+                ->end()
             ->end()
             ->arrayNode('static_forms')
                 ->useAttributeAsKey('name')
@@ -51,6 +76,10 @@ class Configuration implements ConfigurationInterface
             ->arrayNode('mail')
                 ->addDefaultsIfNotSet()
                 ->children()
+                    ->scalarNode('helper')
+                        ->defaultValue(null)
+                        ->info('Shipped helper are "swift_mailer" and "mailer", defaults to "swift_mailer" if both exists.')
+                    ->end()
                     ->scalarNode('from')->defaultValue(null)->end()
                     ->scalarNode('to')->defaultValue(null)->end()
                     ->scalarNode('sender')->defaultValue(null)->end()
@@ -77,7 +106,7 @@ class Configuration implements ConfigurationInterface
                 ->addDefaultsIfNotSet()
                 ->children()
                     ->scalarNode('default')->defaultValue('simple')->end()
-                    ->scalarNode('delimiter')->defaultValue(PHP_EOL)->end()
+                    ->scalarNode('delimiter')->defaultValue(\PHP_EOL)->end()
                 ->end()
             ->end()
             ->booleanNode('dynamic_auto_title')->defaultValue(true)->end()

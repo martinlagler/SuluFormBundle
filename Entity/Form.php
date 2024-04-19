@@ -19,6 +19,8 @@ use Doctrine\Common\Collections\Collection;
  */
 class Form
 {
+    public const RESOURCE_KEY = 'forms';
+
     /**
      * @var null|int
      */
@@ -30,12 +32,12 @@ class Form
     private $defaultLocale;
 
     /**
-     * @var Collection|FormTranslation[]
+     * @var Collection<int, FormTranslation>
      */
     private $translations;
 
     /**
-     * @var Collection|FormField[]
+     * @var Collection<int, FormField>
      */
     private $fields;
 
@@ -79,7 +81,7 @@ class Form
     /**
      * Get translations.
      *
-     * @return Collection|FormTranslation[]
+     * @return Collection<int, FormTranslation>
      */
     public function getTranslations()
     {
@@ -98,6 +100,7 @@ class Form
             $translation = new FormTranslation();
             $translation->setLocale($locale);
             $this->addTranslation($translation);
+            $translation->setForm($this);
 
             return $translation;
         }
@@ -124,7 +127,7 @@ class Form
     }
 
     /**
-     * @return Collection|FormField[]
+     * @return Collection<int, FormField>
      */
     public function getFields()
     {
@@ -181,7 +184,7 @@ class Form
         $fields = [];
 
         foreach ($this->fields as $field) {
-            if (!in_array($field->getKey(), $keys)) {
+            if (!\in_array($field->getKey(), $keys)) {
                 $fields[] = $field;
             }
         }
@@ -217,7 +220,7 @@ class Form
                 'value' => $value,
             ];
 
-            ksort($fields);
+            \ksort($fields);
         }
 
         $translation = $this->getTranslation($locale, false, true);

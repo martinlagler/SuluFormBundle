@@ -12,11 +12,20 @@
 namespace Sulu\Bundle\FormBundle\Manager;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Sulu\Bundle\ActivityBundle\Application\Collector\DomainEventCollectorInterface;
+use Sulu\Bundle\FormBundle\Domain\Event\FormCopiedEvent;
+use Sulu\Bundle\FormBundle\Domain\Event\FormCreatedEvent;
+use Sulu\Bundle\FormBundle\Domain\Event\FormModifiedEvent;
+use Sulu\Bundle\FormBundle\Domain\Event\FormRemovedEvent;
+use Sulu\Bundle\FormBundle\Domain\Event\FormTranslationAddedEvent;
 use Sulu\Bundle\FormBundle\Entity\Form;
 use Sulu\Bundle\FormBundle\Entity\FormField;
+use Sulu\Bundle\FormBundle\Entity\FormFieldTranslation;
 use Sulu\Bundle\FormBundle\Entity\FormTranslation;
 use Sulu\Bundle\FormBundle\Entity\FormTranslationReceiver;
+use Sulu\Bundle\FormBundle\Exception\FormNotFoundException;
 use Sulu\Bundle\FormBundle\Repository\FormRepository;
+use Sulu\Bundle\TrashBundle\Application\TrashManager\TrashManagerInterface;
 
 class FormManager
 {
@@ -31,14 +40,28 @@ class FormManager
     protected $formRepository;
 
     /**
+     * @var DomainEventCollectorInterface
+     */
+    private $domainEventCollector;
+
+    /**
+     * @var TrashManagerInterface|null
+     */
+    private $trashManager;
+
+    /**
      * EventManager constructor.
      */
     public function __construct(
         EntityManagerInterface $entityManager,
-        FormRepository $formRepository
+        FormRepository $formRepository,
+        DomainEventCollectorInterface $domainEventCollector,
+        ?TrashManagerInterface $trashManager
     ) {
         $this->entityManager = $entityManager;
         $this->formRepository = $formRepository;
+        $this->domainEventCollector = $domainEventCollector;
+        $this->trashManager = $trashManager;
     }
 
     public function findById(int $id, ?string $locale = null): ?Form
@@ -64,10 +87,93 @@ class FormManager
         return $this->formRepository->countByFilters($locale, $filters);
     }
 
+    public function copy(int $id, string $locale): Form
+    {
+        $form = $this->findById($id);
+
+        if (!$form) {
+            throw new FormNotFoundException($id, null);
+        }
+
+        $newForm = new Form();
+        $newForm->setDefaultLocale($form->getDefaultLocale());
+
+        foreach ($form->getTranslations() as $translation) {
+            /** @var FormTranslation $newFormTranslation */
+            $newFormTranslation = $newForm->getTranslation($translation->getLocale(), true);
+            $newFormTranslation->setTitle($translation->getTitle() . ' (2)');
+            $newFormTranslation->setSubject($translation->getSubject());
+            $newFormTranslation->setFromEmail($translation->getFromEmail());
+            $newFormTranslation->setFromName($translation->getFromName());
+            $newFormTranslation->setToEmail($translation->getToEmail());
+            $newFormTranslation->setToName($translation->getToName());
+            $newFormTranslation->setMailText($translation->getMailText());
+            $newFormTranslation->setSubmitLabel($translation->getSubmitLabel());
+            $newFormTranslation->setSuccessText($translation->getSuccessText());
+            $newFormTranslation->setSendAttachments($translation->getSendAttachments());
+            $newFormTranslation->setDeactivateAttachmentSave($translation->getDeactivateAttachmentSave());
+            $newFormTranslation->setDeactivateNotifyMails($translation->getDeactivateNotifyMails());
+            $newFormTranslation->setDeactivateCustomerMails($translation->getDeactivateCustomerMails());
+            $newFormTranslation->setReplyTo($translation->getReplyTo());
+            $newFormTranslation->setChanged(new \DateTime());
+            $newFormTranslation->setForm($newForm);
+            $newForm->addTranslation($newFormTranslation);
+
+            foreach ($translation->getReceivers() as $receiver) {
+                $newReceiver = new FormTranslationReceiver();
+                $newReceiver->setType($receiver->getType());
+                $newReceiver->setEmail($receiver->getEmail());
+                $newReceiver->setName($receiver->getName());
+                $newReceiver->setFormTranslation($newFormTranslation);
+                $newFormTranslation->addReceiver($newReceiver);
+            }
+        }
+
+        foreach ($form->getFields() as $field) {
+            $newField = new FormField();
+            $newField->setDefaultLocale($field->getDefaultLocale());
+            $newField->setKey($field->getKey());
+            $newField->setType($field->getType());
+            $newField->setOrder($field->getOrder());
+            $newField->setWidth($field->getWidth());
+            $newField->setRequired($field->getRequired());
+
+            foreach ($field->getTranslations() as $fieldTranslation) {
+                /** @var FormFieldTranslation $newFieldTranslation */
+                $newFieldTranslation = $newField->getTranslation($fieldTranslation->getLocale(), true);
+                $newFieldTranslation->setTitle($fieldTranslation->getTitle());
+                $newFieldTranslation->setPlaceholder($fieldTranslation->getPlaceholder());
+                $newFieldTranslation->setDefaultValue($fieldTranslation->getDefaultValue());
+                $newFieldTranslation->setShortTitle($fieldTranslation->getShortTitle());
+                $newFieldTranslation->setOptions($fieldTranslation->getOptions());
+            }
+
+            $newField->setForm($newForm);
+            $newForm->addField($newField);
+        }
+
+        /** @var FormTranslation $newFormTranslation */
+        $newFormTranslation = $newForm->getTranslation($locale, false, true);
+
+        $this->domainEventCollector->collect(
+            new FormCopiedEvent(
+                $newForm,
+                $id,
+                $newFormTranslation->getTitle(),
+                $locale
+            )
+        );
+
+        $this->entityManager->persist($newForm);
+        $this->entityManager->flush();
+
+        return $newForm;
+    }
+
     /**
      * @param mixed[] $data
      */
-    public function save(array $data, ?string $locale = null, ?int $id = null): ?Form
+    public function save(array $data, ?string $locale = null, ?int $id = null, ?bool $omitDomainEvent = false): ?Form
     {
         $form = new Form();
 
@@ -81,6 +187,7 @@ class FormManager
         }
 
         // Translation
+        $isNewTranslation = !$form->getTranslation($locale, false, false);
         $translation = $form->getTranslation($locale, true);
         $translation->setTitle(self::getValue($data, 'title'));
         $translation->setSubject(self::getValue($data, 'subject'));
@@ -113,6 +220,16 @@ class FormManager
         $this->updateFields($data, $form, $locale);
         $this->updateReceivers($data, $translation);
 
+        if (!$omitDomainEvent) {
+            if (!$id) {
+                $this->domainEventCollector->collect(new FormCreatedEvent($form, $locale, $data));
+            } elseif ($isNewTranslation) {
+                $this->domainEventCollector->collect(new FormTranslationAddedEvent($form, $locale, $data));
+            } else {
+                $this->domainEventCollector->collect(new FormModifiedEvent($form, $locale, $data));
+            }
+        }
+
         $this->entityManager->persist($form);
         $this->entityManager->flush();
 
@@ -132,6 +249,16 @@ class FormManager
         if (!$object) {
             return null;
         }
+
+        if ($this->trashManager) {
+            $this->trashManager->store(Form::RESOURCE_KEY, $object);
+        }
+
+        /** @var FormTranslation $translation */
+        $translation = $object->getTranslation($locale, false, true);
+        $this->domainEventCollector->collect(
+            new FormRemovedEvent($id, $translation->getTitle(), $translation->getLocale())
+        );
 
         $this->entityManager->remove($object);
         $this->entityManager->flush();
@@ -160,7 +287,7 @@ class FormManager
             $receiver = new FormTranslationReceiver();
             $receiver->setType($receiverData['type']);
             $receiver->setEmail($receiverData['email']);
-            if (!array_key_exists('name', $receiverData)) {
+            if (!\array_key_exists('name', $receiverData)) {
                 $receiverData['name'] = null;
             }
             $receiver->setName($receiverData['name']);
@@ -179,7 +306,7 @@ class FormManager
      */
     protected function updateFields(array $data, Form $form, string $locale): void
     {
-        $reservedKeys = array_column(self::getValue($data, 'fields', []), 'key');
+        $reservedKeys = \array_column(self::getValue($data, 'fields', []), 'key');
 
         $counter = 0;
 
@@ -271,7 +398,7 @@ class FormManager
             $name .= $counter;
         }
 
-        if (!in_array($name, $keys)) {
+        if (!\in_array($name, $keys)) {
             return $name;
         }
 

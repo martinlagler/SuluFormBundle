@@ -17,12 +17,11 @@ use Symfony\Component\DependencyInjection\Reference;
 
 /**
  * Add all available dynamic list builders to the factory.
+ *
+ * @internal
  */
 class DynamicListBuilderCompilerPass implements CompilerPassInterface
 {
-    /**
-     * {@inheritdoc}
-     */
     public function process(ContainerBuilder $container): void
     {
         if (!$container->hasDefinition('sulu_form.list_builder.dynamic_list_factory')) {

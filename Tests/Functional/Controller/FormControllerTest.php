@@ -12,6 +12,7 @@
 namespace Sulu\Bundle\FormBundle\Tests\Functional\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Sulu\Bundle\ActivityBundle\Domain\Model\ActivityInterface;
 use Sulu\Bundle\FormBundle\Configuration\MailConfiguration;
 use Sulu\Bundle\FormBundle\Entity\Form;
 use Sulu\Bundle\FormBundle\Entity\FormField;
@@ -19,6 +20,7 @@ use Sulu\Bundle\FormBundle\Entity\FormFieldTranslation;
 use Sulu\Bundle\FormBundle\Entity\FormTranslation;
 use Sulu\Bundle\FormBundle\Entity\FormTranslationReceiver;
 use Sulu\Bundle\TestBundle\Testing\SuluTestCase;
+use Sulu\Bundle\TrashBundle\Domain\Model\TrashItemInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
 class FormControllerTest extends SuluTestCase
@@ -61,7 +63,7 @@ class FormControllerTest extends SuluTestCase
         $this->assertHttpStatusCode(200, $this->client->getResponse());
     }
 
-    public function testGetNotFound()
+    public function testGetNotFound(): void
     {
         $this->client->request(
             'GET',
@@ -81,7 +83,7 @@ class FormControllerTest extends SuluTestCase
         );
 
         $this->assertHttpStatusCode(200, $this->client->getResponse());
-        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $response = \json_decode($this->client->getResponse()->getContent(), true);
 
         $this->assertFullForm($response);
     }
@@ -100,8 +102,12 @@ class FormControllerTest extends SuluTestCase
         );
 
         $this->assertHttpStatusCode(201, $this->client->getResponse());
-        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $response = \json_decode($this->client->getResponse()->getContent(), true);
         $this->assertMinimalForm($response);
+
+        $activity = $this->em->getRepository(ActivityInterface::class)->findOneBy(['type' => 'created']);
+        $this->assertNotNull($activity);
+        $this->assertSame((string) $response['id'], $activity->getResourceId());
     }
 
     public function testPostFull(): void
@@ -113,9 +119,54 @@ class FormControllerTest extends SuluTestCase
         );
 
         $this->assertHttpStatusCode(201, $this->client->getResponse());
-        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $response = \json_decode($this->client->getResponse()->getContent(), true);
 
         $this->assertFullForm($response);
+    }
+
+    public function testPostTriggerNotFound(): void
+    {
+        $this->client->request(
+            'POST',
+            '/admin/api/forms/2?action=copy'
+        );
+
+        $this->assertHttpStatusCode(404, $this->client->getResponse());
+    }
+
+    public function testPostTriggerInvalidAction(): void
+    {
+        $form = $this->createMinimalForm();
+
+        $this->client->request(
+            'POST',
+            '/admin/api/forms/' . $form->getId() . '?action=not-an-action'
+        );
+
+        $this->assertHttpStatusCode(400, $this->client->getResponse());
+    }
+
+    public function testPostTriggerCopy(): void
+    {
+        $form = $this->createFullForm();
+
+        $this->client->request(
+            'POST',
+            '/admin/api/forms/' . $form->getId() . '?action=copy'
+        );
+
+        $this->assertHttpStatusCode(200, $this->client->getResponse());
+        $response = \json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertEquals('Title (2)', $response['title']);
+        $this->assertNotEquals($form->getId(), $response['id']);
+        $response['title'] = \str_replace(' (2)', '', $response['title']);
+
+        $this->assertFullForm($response);
+
+        $activity = $this->em->getRepository(ActivityInterface::class)->findOneBy(['type' => 'copied']);
+        $this->assertNotNull($activity);
+        $this->assertSame((string) $response['id'], $activity->getResourceId());
     }
 
     public function testPutMinimal(): void
@@ -133,8 +184,12 @@ class FormControllerTest extends SuluTestCase
         );
 
         $this->assertHttpStatusCode(200, $this->client->getResponse());
-        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $response = \json_decode($this->client->getResponse()->getContent(), true);
         $this->assertMinimalForm($response);
+
+        $activity = $this->em->getRepository(ActivityInterface::class)->findOneBy(['type' => 'modified']);
+        $this->assertNotNull($activity);
+        $this->assertSame((string) $response['id'], $activity->getResourceId());
     }
 
     public function testPutFull(): void
@@ -147,7 +202,7 @@ class FormControllerTest extends SuluTestCase
         );
 
         $this->assertHttpStatusCode(200, $this->client->getResponse());
-        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $response = \json_decode($this->client->getResponse()->getContent(), true);
         $this->assertFullForm($response);
     }
 
@@ -165,10 +220,11 @@ class FormControllerTest extends SuluTestCase
     public function testDelete(): void
     {
         $form = $this->createFullForm();
+        $formId = $form->getId();
 
         $this->client->request(
             'DELETE',
-            '/admin/api/forms/' . $form->getId()
+            '/admin/api/forms/' . $formId
         );
 
         $this->assertHttpStatusCode(204, $this->client->getResponse());
@@ -180,6 +236,14 @@ class FormControllerTest extends SuluTestCase
         );
 
         $this->assertHttpStatusCode(404, $this->client->getResponse());
+
+        $activity = $this->em->getRepository(ActivityInterface::class)->findOneBy(['type' => 'removed']);
+        $this->assertNotNull($activity);
+        $this->assertSame((string) $formId, $activity->getResourceId());
+
+        $trashItemRepository = $this->em->getRepository(TrashItemInterface::class);
+        $trashItem = $trashItemRepository->findOneBy(['resourceKey' => Form::RESOURCE_KEY, 'resourceId' => $formId]);
+        $this->assertNotNull($trashItem);
     }
 
     public function testDeleteNotFound(): void
@@ -240,7 +304,7 @@ class FormControllerTest extends SuluTestCase
         $this->assertEquals('<p>Mail Text</p>', $response['mailText']);
         // Fields
         $expectedFieldTypes = ['email', 'email'];
-        $this->assertCount(count($expectedFieldTypes), $response['fields']);
+        $this->assertCount(\count($expectedFieldTypes), $response['fields']);
         foreach ($expectedFieldTypes as $key => $type) {
             $this->assertNotNull($response['fields'][$key]['id']);
             $this->assertEquals($type, $response['fields'][$key]['type']);
@@ -263,7 +327,7 @@ class FormControllerTest extends SuluTestCase
                 if ($expectedType === $receiver['type']) {
                     $foundExpectedType = true;
                     $this->assertNotNull($receiver['id']);
-                    $this->assertEquals(ucfirst($expectedType) . ' Receiver', $receiver['name']);
+                    $this->assertEquals(\ucfirst($expectedType) . ' Receiver', $receiver['name']);
                     $this->assertEquals($expectedType . '-receiver@example.org', $receiver['email']);
                     $this->assertEquals($expectedType, $receiver['type']);
                     $this->assertCountFields(4, $receiver);
@@ -276,7 +340,7 @@ class FormControllerTest extends SuluTestCase
         $this->assertCountFields(18, $response);
     }
 
-    private function assertCountFields($expectedCount, $haystack)
+    private function assertCountFields($expectedCount, $haystack): void
     {
         $this->assertCount(
             $expectedCount,

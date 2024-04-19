@@ -32,7 +32,7 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 class Builder implements BuilderInterface
 {
     /**
-     * @var array
+     * @var FormInterface[]
      */
     private $cache = [];
 
@@ -71,6 +71,11 @@ class Builder implements BuilderInterface
      */
     private $csrfTokenManager;
 
+    /**
+     * @var bool
+     */
+    private $csrfProtection;
+
     public function __construct(
         RequestStack $requestStack,
         FormFieldTypePool $formFieldTypePool,
@@ -78,7 +83,8 @@ class Builder implements BuilderInterface
         FormRepository $formRepository,
         FormFactory $formFactory,
         Checksum $checksum,
-        CsrfTokenManagerInterface $csrfTokenManager
+        CsrfTokenManagerInterface $csrfTokenManager,
+        bool $csrfProtection = false
     ) {
         $this->requestStack = $requestStack;
         $this->formFieldTypePool = $formFieldTypePool;
@@ -87,16 +93,14 @@ class Builder implements BuilderInterface
         $this->formFactory = $formFactory;
         $this->checksum = $checksum;
         $this->csrfTokenManager = $csrfTokenManager;
+        $this->csrfProtection = $csrfProtection;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function buildByRequest(Request $request): ?FormInterface
     {
         foreach ($request->request->all() as $key => $parameters) {
-            if (0 === strpos($key, 'dynamic_')) {
-                $formNameParts = explode('dynamic_', $key, 2);
+            if (0 === \strpos($key, 'dynamic_')) {
+                $formNameParts = \explode('dynamic_', $key, 2);
                 $checksumCheck = $this->checksum->check(
                     $parameters['checksum'],
                     $parameters['type'],
@@ -139,9 +143,6 @@ class Builder implements BuilderInterface
         return null;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function build(int $id, string $type, string $typeId, ?string $locale = null, string $name = 'form'): ?FormInterface
     {
         $request = $this->requestStack->getCurrentRequest();
@@ -194,7 +195,7 @@ class Builder implements BuilderInterface
 
     private function getKey(int $id, string $type, string $typeId, string $locale, string $name): string
     {
-        return implode('__', func_get_args());
+        return \implode('__', \func_get_args());
     }
 
     private function createForm(string $name, string $type, string $typeId, string $locale, Form $formEntity, string $webspaceKey): FormInterface
@@ -203,9 +204,9 @@ class Builder implements BuilderInterface
         $typeName = $this->titleProviderPool->get($type)->getTitle($typeId, $locale);
 
         $recaptchaFields = $formEntity->getFieldsByType('recaptcha');
-        $csrfTokenProtection = true;
+        $csrfTokenProtection = $this->csrfProtection;
 
-        if (count($recaptchaFields)) {
+        if (\count($recaptchaFields)) {
             $csrfTokenProtection = false;
         }
 

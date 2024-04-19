@@ -13,9 +13,12 @@ namespace Sulu\Bundle\FormBundle\Controller;
 
 use FOS\RestBundle\Routing\ClassResourceInterface;
 use FOS\RestBundle\View\ViewHandlerInterface;
+use Sulu\Bundle\FormBundle\Admin\FormAdmin;
 use Sulu\Bundle\FormBundle\Entity\Form;
+use Sulu\Bundle\FormBundle\Exception\FormNotFoundException;
 use Sulu\Bundle\FormBundle\Manager\FormManager;
 use Sulu\Component\Rest\AbstractRestController;
+use Sulu\Component\Rest\Exception\RestException;
 use Sulu\Component\Rest\ListBuilder\AbstractListBuilder;
 use Sulu\Component\Rest\ListBuilder\Doctrine\DoctrineListBuilderFactoryInterface;
 use Sulu\Component\Rest\ListBuilder\ListRepresentation;
@@ -73,11 +76,11 @@ class FormController extends AbstractRestController implements ClassResourceInte
     }
 
     /**
-     * {@inheritdoc}
+     * @return string
      */
     public function getSecurityContext()
     {
-        return 'sulu.form.forms';
+        return FormAdmin::SECURITY_CONTEXT;
     }
 
     public function getModelClass(): string
@@ -102,7 +105,7 @@ class FormController extends AbstractRestController implements ClassResourceInte
             $listBuilder = $this->factory->create($this->getModelClass());
 
             // get fieldDescriptors
-            $fieldDescriptors = $this->fieldDescriptorFactory->getFieldDescriptors('forms');
+            $fieldDescriptors = $this->fieldDescriptorFactory->getFieldDescriptors(Form::RESOURCE_KEY);
 
             $this->restHelper->initializeListBuilder($listBuilder, $fieldDescriptors);
 
@@ -126,11 +129,11 @@ class FormController extends AbstractRestController implements ClassResourceInte
             // get pagination
             $offset = $this->getOffset($filters);
             $limit = $this->getLimit($filters);
-            $total = $offset + count($list);
+            $total = $offset + \count($list);
             $page = $this->getPage($filters);
 
             // if to avoid db request with less items then the limit
-            if (count($list) >= $limit) {
+            if (\count($list) >= $limit) {
                 $total = $this->formManager->count($locale, $this->getCountFilters($filters));
             }
         }
@@ -156,7 +159,7 @@ class FormController extends AbstractRestController implements ClassResourceInte
         $entity = $this->formManager->findById($id, $locale);
 
         if (!$entity) {
-            throw new NotFoundHttpException(sprintf('No form with id "%s" was found!', $id));
+            throw new NotFoundHttpException(\sprintf('No form with id "%s" was found!', $id));
         }
 
         return $this->handleView($this->view($this->getApiEntity($entity, $locale)));
@@ -172,6 +175,31 @@ class FormController extends AbstractRestController implements ClassResourceInte
         return $this->handleView($this->view($this->getApiEntity($entity, $locale), 201));
     }
 
+    public function postTriggerAction(Request $request, int $id): Response
+    {
+        $action = $request->query->get('action');
+        $locale = $this->getLocale($request);
+
+        try {
+            switch ($action) {
+                case 'copy':
+                    try {
+                        $copiedForm = $this->formManager->copy($id, $locale);
+                    } catch (FormNotFoundException $e) {
+                        throw new NotFoundHttpException(\sprintf('No form with id "%s" was found!', $e->getFormEntityId()), $e);
+                    }
+
+                    return $this->handleView($this->view($this->getApiEntity($copiedForm, $locale)));
+                default:
+                    throw new RestException(\sprintf('Unrecognized action: "%s"', $action));
+            }
+        } catch (RestException $ex) {
+            $view = $this->view($ex->toArray(), 400);
+
+            return $this->handleView($view);
+        }
+    }
+
     public function putAction(Request $request, int $id): Response
     {
         $locale = $this->getLocale($request);
@@ -180,7 +208,7 @@ class FormController extends AbstractRestController implements ClassResourceInte
         $entity = $this->formManager->save($this->getData($request), $locale, $id);
 
         if (!$entity) {
-            throw new NotFoundHttpException(sprintf('No form with id "%s" was found!', $id));
+            throw new NotFoundHttpException(\sprintf('No form with id "%s" was found!', $id));
         }
 
         return $this->handleView($this->view($this->getApiEntity($entity, $locale)));
@@ -193,15 +221,12 @@ class FormController extends AbstractRestController implements ClassResourceInte
         $entity = $this->formManager->delete($id, $locale);
 
         if (!$entity) {
-            throw new NotFoundHttpException(sprintf('No form with id "%s" was found!', $id));
+            throw new NotFoundHttpException(\sprintf('No form with id "%s" was found!', $id));
         }
 
         return new Response('', 204);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getLocale(Request $request): string
     {
         return $request->get('locale', $request->getLocale());
@@ -286,7 +311,7 @@ class FormController extends AbstractRestController implements ClassResourceInte
     {
         if (!isset($filters['page'])) {
             if (isset($filters['limit']) && isset($filters['offset'])) {
-                return intval(floor($filters['offset'] / $filters['limit']) + 1);
+                return \intval(\floor($filters['offset'] / $filters['limit']) + 1);
             }
 
             return 1;
@@ -369,12 +394,12 @@ class FormController extends AbstractRestController implements ClassResourceInte
         }
 
         // Sort fields with correct order
-        usort($fields, function($fieldA, $fieldB) {
+        \usort($fields, function($fieldA, $fieldB) {
             return $fieldA['order'] <=> $fieldB['order'];
         });
 
         // Api Entity
-        return array_merge(
+        return \array_merge(
             [
                 'id' => $entity->getId(),
                 'locale' => $locale,

@@ -18,15 +18,21 @@ class Dynamic implements AuditableInterface
 {
     use AuditableTrait;
 
-    const TYPE_ATTACHMENT = 'attachment';
-    const TYPE_EMAIL = 'email';
+    public const TYPE_ATTACHMENT = 'attachment';
+    public const TYPE_EMAIL = 'email';
 
+    /**
+     * @var string[]
+     */
     protected static $ARRAY_TYPES = [
         'checkboxMultiple',
         'dropdownMultiple',
         self::TYPE_ATTACHMENT,
     ];
 
+    /**
+     * @var string[]
+     */
     public static $HIDDEN_TYPES = [
         'spacer',
         'headline',
@@ -97,12 +103,15 @@ class Dynamic implements AuditableInterface
      */
     public function getData(): array
     {
-        return json_decode($this->data ?: '[]', true);
+        return \json_decode($this->data ?: '[]', true);
     }
 
+    /**
+     * @param mixed[] $data
+     */
     public function setData(array $data): self
     {
-        $this->data = json_encode($data, JSON_UNESCAPED_UNICODE);
+        $this->data = \json_encode($data, \JSON_UNESCAPED_UNICODE);
 
         return $this;
     }
@@ -115,7 +124,7 @@ class Dynamic implements AuditableInterface
         $array = $this->getData();
         $array[$key] = $value;
 
-        $this->data = json_encode($array, JSON_UNESCAPED_UNICODE);
+        $this->data = \json_encode($array, \JSON_UNESCAPED_UNICODE);
 
         return $this;
     }
@@ -146,7 +155,7 @@ class Dynamic implements AuditableInterface
         }
 
         foreach ($this->form->getFields() as $field) {
-            if ($hideHidden && in_array($field->getType(), self::$HIDDEN_TYPES)) {
+            if ($hideHidden && \in_array($field->getType(), self::$HIDDEN_TYPES)) {
                 continue;
             }
 
@@ -362,9 +371,9 @@ class Dynamic implements AuditableInterface
     }
 
     /**
-     * @return string
+     * @return int[]|null
      */
-    public function getAttachment(): ?string
+    public function getAttachment(): ?array
     {
         return $this->getField('attachment');
     }
