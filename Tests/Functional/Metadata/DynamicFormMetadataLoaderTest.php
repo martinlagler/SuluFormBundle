@@ -127,6 +127,7 @@ class DynamicFormMetadataLoaderTest extends SuluTestCase
             'company',
             'freeText',
             'function',
+            'hidden',
             'country',
             'spacer',
             'textarea',
@@ -139,7 +140,6 @@ class DynamicFormMetadataLoaderTest extends SuluTestCase
             'title',
             'firstName',
             'headline',
-            'hidden',
         ], \array_keys($fields->getTypes()));
     }
 
