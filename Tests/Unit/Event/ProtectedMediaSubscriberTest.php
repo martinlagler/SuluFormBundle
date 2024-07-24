@@ -87,7 +87,9 @@ class ProtectedMediaSubscriberTest extends TestCase
         $event = new RequestEvent(
             new Kernel('test', true, SuluKernel::CONTEXT_WEBSITE),
             $request,
-            HttpKernelInterface::MASTER_REQUEST
+            \defined(HttpKernelInterface::class . '::MASTER_REQUEST')
+                ? HttpKernelInterface::MASTER_REQUEST
+                : HttpKernelInterface::MAIN_REQUEST
         );
 
         $this->formatCache->analyzedMediaUrl(Argument::any())
@@ -108,7 +110,9 @@ class ProtectedMediaSubscriberTest extends TestCase
         $event = new RequestEvent(
             new Kernel('test', true, SuluKernel::CONTEXT_WEBSITE),
             $request,
-            HttpKernelInterface::MASTER_REQUEST
+            \defined(HttpKernelInterface::class . '::MASTER_REQUEST')
+                ? HttpKernelInterface::MASTER_REQUEST
+                : HttpKernelInterface::MAIN_REQUEST
         );
 
         $this->formatCache->analyzedMediaUrl(Argument::any())
@@ -136,7 +140,9 @@ class ProtectedMediaSubscriberTest extends TestCase
         $event = new RequestEvent(
             new Kernel('test', true, SuluKernel::CONTEXT_WEBSITE),
             $request,
-            HttpKernelInterface::MASTER_REQUEST
+            \defined(HttpKernelInterface::class . '::MASTER_REQUEST')
+                ? HttpKernelInterface::MASTER_REQUEST
+                : HttpKernelInterface::MAIN_REQUEST
         );
 
         $this->mockLoadCollectionKey('sulu_form');
